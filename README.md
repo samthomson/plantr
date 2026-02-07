@@ -34,8 +34,9 @@ Power Supply (-) ───▶ Pump (-)
 2. Fill in your values:
    - `WIFI_SSID` / `WIFI_PASS`
    - `NOSTR_RELAY_HOST`
-   - `NOSTR_PRIVKEY` (64-char hex)
-   - `PLANT_POT_D_TAG` (e.g., "plant-pot-1")
+   - `NOSTR_PRIVKEY` (64-char hex, device's own keypair - currently unused)
+   - `PLANT_POT_PRIVKEY` (64-char hex, plant pot's private key for updating events)
+   - `PLANT_POT_D_TAG` (e.g., "test-pot-4")
    - `RELAY_PIN` (default: 4)
 
 3. Build and upload: `pio run -t upload`
@@ -66,4 +67,4 @@ Power Supply (-) ───▶ Pump (-)
 }
 ```
 
-Device polls every 30s, executes water tasks, publishes log events.
+Device polls every 15s, executes water tasks, and updates the replaceable event by removing completed tasks.
