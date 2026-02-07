@@ -1,0 +1,7 @@
+# PlatformIO build artifacts
+.pio/
+.vscode/
+
+# Secrets file (contains sensitive data)
+secrets.h
+
