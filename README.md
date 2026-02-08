@@ -4,8 +4,8 @@ ESP32 IoT device that waters plants based on Nostr replaceable events.
 
 ## Nostr Kinds
 
-- **Kind 30000**: Replaceable plant pot event (NIP-33)
-- **Kind 30001**: Log event (execution record)
+- **Kind 34419**: Replaceable plant pot event (NIP-33)
+- **Kind 4171**: Activity log event (regular event, not replaceable)
 
 ## Wiring
 
@@ -26,7 +26,7 @@ Power Supply (-) ───▶ Pump (-)
 - NC = Normally Closed (unused)
 - COM = Common (power input)
 - NO = Normally Open (connects to COM when relay activates)
-- Relay is Active LOW (LOW = ON, HIGH = OFF)
+- Relay is Active HIGH (HIGH = ON, LOW = OFF)
 
 ## Setup
 
@@ -43,28 +43,37 @@ Power Supply (-) ───▶ Pump (-)
 
 ## Event Structure
 
-**Plant Pot (Kind 30000):**
+**Plant Pot (Kind 34419) - Replaceable Event:**
 ```json
 {
-  "kind": 30000,
+  "kind": 34419,
+  "pubkey": "<plant-pot-pubkey>",
   "tags": [
-    ["d", "plant-pot-1"],
+    ["d", "test-pot-4"],
+    ["name", "Monstera"],
     ["task", "water", "30"]
   ],
   "content": ""
 }
 ```
 
-**Log (Kind 30001):**
+**Activity Log (Kind 4171) - Regular Event:**
 ```json
 {
-  "kind": 30001,
+  "kind": 4171,
+  "pubkey": "<iot-device-pubkey>",
   "tags": [
-    ["a", "30000:<pubkey>:plant-pot-1"],
+    ["a", "34419:<plant-pot-pubkey>:test-pot-4"],
+    ["e", "<plant-pot-event-id>"],
     ["task", "water", "30"]
   ],
   "content": ""
 }
 ```
 
-Device polls every 15s, executes water tasks, and updates the replaceable event by removing completed tasks.
+**Activity Log Tags:**
+- `["a", "..."]`: References the plant pot replaceable event using NIP-33 format (`kind:pubkey:d-tag`)
+- `["e", "..."]`: References the specific plant pot event ID that triggered this log entry
+- `["task", "water", "30"]`: The task that was executed (type and value)
+
+Device polls every 15s, executes water tasks, publishes activity logs, and updates the replaceable event by removing completed tasks.

@@ -16,8 +16,8 @@
 #include "uECC.h"
 
 // Nostr kinds
-#define KIND_PLANT_POT 30000
-#define KIND_LOG 30001
+#define KIND_PLANT_POT 34419  // Replaceable plant pot event (NIP-33)
+#define KIND_ACTIVITY_LOG 4171  // Activity log (regular event, not replaceable)
 
 // secp256k1 curve order
 static const uint8_t SECP256K1_ORDER[32] = {
@@ -79,9 +79,11 @@ void subscribeToPlantPot();
 void processPlantPotEvent(const String& eventJson);
 void executeWaterTask(int seconds);
 void updateReplaceableEvent(const String& filteredTagsJson, const String& content);
+void publishActivityLog(const String& taskType, int taskValue, const String& plantPotEventId);
 void derivePubkey();
 void derivePlantPotPubkey();
 String createPlantPotEvent(const String& tags, const String& content);
+String createNostrEvent(int kind, const String& tags, const String& content);
 String bytesToHex(uint8_t* bytes, int len);
 void hexToBytes(const char* hex, uint8_t* bytes, int len);
 void sha256Raw(const uint8_t* data, size_t len, uint8_t* out);
@@ -430,6 +432,10 @@ void processPlantPotEvent(const String& eventJson) {
       Serial.println("\n=== Updating replaceable event ===");
       updateReplaceableEvent(filteredTagsJson, originalContent);
       
+      // Publish activity log
+      Serial.println("Publishing activity log...");
+      publishActivityLog("water", taskSeconds, eventId);
+      
       // Reset processed event ID so we can process the updated event
       // (which will have a new ID since it's a new replaceable event)
       lastProcessedEventId = "";
@@ -472,6 +478,29 @@ void updateReplaceableEvent(const String& filteredTagsJson, const String& conten
   String msg = "[\"EVENT\"," + event + "]";
   webSocket.sendTXT(msg);
   Serial.println("Step 2: OK - Replaceable event updated (tasks removed)");
+}
+
+void publishActivityLog(const String& taskType, int taskValue, const String& plantPotEventId) {
+  // Build tags for activity log
+  // "a" tag references the plant pot replaceable event (kind:pubkey:d-tag format)
+  String aTag = String(KIND_PLANT_POT) + ":" + plantPotPubkey + ":" + String(plantPotDTag);
+  String tags = "[";
+  tags += "[\"a\",\"" + aTag + "\"],";
+  tags += "[\"e\",\"" + plantPotEventId + "\"],";  // Reference to the specific plant pot event that triggered this
+  tags += "[\"task\",\"" + taskType + "\",\"" + String(taskValue) + "\"]";
+  tags += "]";
+  
+  // Create and sign the log event (signed by IoT device's own keypair)
+  String event = createNostrEvent(KIND_ACTIVITY_LOG, tags, "");
+  if (event.length() == 0) {
+    Serial.println("FAILED: createNostrEvent returned empty for activity log");
+    return;
+  }
+  
+  // Send to relay
+  String msg = "[\"EVENT\"," + event + "]";
+  webSocket.sendTXT(msg);
+  Serial.println("Activity log published");
 }
 
 String createNostrEvent(int kind, const String& tags, const String& content) {
