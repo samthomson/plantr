@@ -163,7 +163,7 @@ void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   
   pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, HIGH);  // Relay OFF (active LOW)
+  digitalWrite(relayPin, LOW);   // Relay OFF (active HIGH - inverted logic)
   
   Serial.println("\n=== Plantr ESP32 ===");
   
@@ -328,8 +328,16 @@ void processPlantPotEvent(const String& eventJson) {
   
   // Track event ID to avoid reprocessing
   String eventId = doc["id"].as<String>();
-  lastProcessedEventId = eventId;
   Serial.printf("Processing event ID: %s\n", eventId.c_str());
+  Serial.printf("Last processed event ID: %s\n", lastProcessedEventId.length() > 0 ? lastProcessedEventId.c_str() : "(none)");
+  
+  // Double-check we haven't already processed this (shouldn't happen due to check in webSocketEvent, but safety check)
+  if (eventId == lastProcessedEventId) {
+    Serial.println("WARNING: Attempted to process already-processed event! Skipping.");
+    return;
+  }
+  
+  lastProcessedEventId = eventId;
   
   JsonArray tags = doc["tags"];
   if (!tags) {
@@ -421,7 +429,13 @@ void processPlantPotEvent(const String& eventJson) {
     if (wsConnected) {
       Serial.println("\n=== Updating replaceable event ===");
       updateReplaceableEvent(filteredTagsJson, originalContent);
-      // Subscribe again after update (will happen on next poll interval)
+      
+      // Reset processed event ID so we can process the updated event
+      // (which will have a new ID since it's a new replaceable event)
+      lastProcessedEventId = "";
+      
+      // Wait a bit for the relay to propagate the update before resubscribing
+      delay(2000);
     } else {
       Serial.println("FAILED: Could not reconnect WebSocket to update event");
     }
@@ -434,14 +448,14 @@ void processPlantPotEvent(const String& eventJson) {
 
 void executeWaterTask(int seconds) {
   Serial.println("Turning pump ON...");
-  digitalWrite(relayPin, LOW);   // Relay ON (active LOW)
+  digitalWrite(relayPin, HIGH);  // Relay ON (active HIGH - inverted logic)
   Serial.printf("Pump ON, waiting %d seconds\n", seconds);
   
   // Simple blocking delay (WebSocket is disconnected)
   delay(seconds * 1000);
   
   Serial.println("Turning pump OFF...");
-  digitalWrite(relayPin, HIGH);  // Relay OFF
+  digitalWrite(relayPin, LOW);   // Relay OFF
   Serial.println("Pump OFF");
 }
 
